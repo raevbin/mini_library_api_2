@@ -1,0 +1,8 @@
+Django==2.2.9
+django-filter
+djangorestframework
+Markdown
+pytz
+sqlparse
+coreapi
+factory_boy
