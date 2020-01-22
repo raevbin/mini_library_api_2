@@ -6,3 +6,4 @@ pytz
 sqlparse
 coreapi
 factory_boy
+redis

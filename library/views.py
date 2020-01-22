@@ -5,6 +5,13 @@ from rest_framework.response import Response
 from rest_framework.reverse import reverse
 from rest_framework import status
 import re
+from rest_framework.views import APIView
+
+from celery import group
+from library.tasks import count_records
+from django.apps import apps
+from django.db import connection
+from datetime import datetime
 
 
 from library.serializers import AuthorSerializer, BookSerializer
@@ -74,3 +81,55 @@ class BooksListView(generics.ListCreateAPIView):
 class BookUpdateView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = BookSerializer
     queryset = BookModel.objects.all()
+
+
+
+class StatisticView(APIView):
+
+    def inquiry_async(self):
+        start = datetime.now()
+        job_list = []
+        app_conf = apps.get_app_config('library')
+
+        for model in app_conf.get_models():
+            name = 'library.'+model.__name__
+            job_list.append(count_records.s(name))
+
+        job = group(job_list)
+        result = job.apply_async()
+        rows = result.join()
+
+        data = {
+            'timeout': datetime.now() - start,
+            'result': {}
+        }
+        for row in rows:
+            data['result'][row[0]] = row[1]
+
+        return data
+
+    def inquiry_sql(self):
+        start = datetime.now()
+        cursor = connection.cursor()
+        query = '''
+            SELECT (SELECT COUNT(id) FROM library_authormodel),
+                    (SELECT COUNT(id) FROM library_bookmodel)
+        '''
+        cursor.execute(query)
+        row = cursor.fetchone()
+        data = {
+            'timeout': datetime.now() - start,
+            'result': {
+                'Authors': row[0] if len(row) else None,
+                'Books': row[1] if len(row) > 1 else None
+            }
+        }
+        return data
+
+
+    def get(self, request, format=None):
+        id = request.query_params.get('id')
+        status = request.query_params.get('status')
+        if 'sql' in request.query_params:
+            return Response(self.inquiry_sql())
+        return Response(self.inquiry_async())

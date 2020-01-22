@@ -1,0 +1,5 @@
+Запуск
+pip install -U celery[redis]
+pip install celery django-celery django-kombu
+
+celery -A tasks worker --loglevel=info
