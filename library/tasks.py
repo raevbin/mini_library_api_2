@@ -4,19 +4,6 @@ from celery import shared_task
 from library.models import AuthorModel, BookModel
 
 
-# @shared_task
-# def add(x, y):
-#     return x + y
-
-
-# @shared_task
-# def count():
-#     out = {
-#         'a': AuthorModel.objects.count(),
-#         'b': BookModel.objects.count()
-#     }
-#     return out
-
 @shared_task
 def count_records(name_model):
     model = apps.get_model(name_model)

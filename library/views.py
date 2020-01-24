@@ -1,22 +1,19 @@
+import re
+from celery import group
+from datetime import datetime
+
 from django.shortcuts import render
 from rest_framework import generics
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.reverse import reverse
 from rest_framework import status
-import re
 from rest_framework.views import APIView
-
-from celery import group
 from library.tasks import count_records
 from django.apps import apps
 from django.db import connection
-from datetime import datetime
-
-
 from library.serializers import AuthorSerializer, BookSerializer
 from library.models import AuthorModel, BookModel
-# Create your views here.
 
 
 @api_view(['GET'])
@@ -24,12 +21,12 @@ def api_root(request, format=None):
     return Response({
         'authors': reverse('authors-list', request=request, format=format),
         'books': reverse('books-list', request=request, format=format),
+        'statistics': reverse('stat-list', request=request, format=format),
     })
 
 
 class AuthorsListView(generics.ListCreateAPIView):
     serializer_class = AuthorSerializer
-    # queryset = AuthorModel.objects.all()
 
     def get_queryset(self):
         name = self.request.query_params.get('name')
@@ -43,18 +40,6 @@ class AuthorsListView(generics.ListCreateAPIView):
 class AuthorUpdateView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = AuthorSerializer
     queryset = AuthorModel.objects.all()
-
-    def delete(self, request, *args, **kwargs):
-        books_list = BookModel.objects.filter(author=kwargs.get('pk'))
-        books_list_ser = BookSerializer(books_list, many=True,
-                                        context={'request': request})
-        if len(books_list_ser.data):
-            data = {
-                "detail": "not delete. that object is associated with others",
-                'result': books_list_ser.data
-                }
-            return Response(data, status=status.HTTP_423_LOCKED)
-        return self.destroy(request, *args, **kwargs)
 
 
 class BooksListView(generics.ListCreateAPIView):
@@ -83,7 +68,6 @@ class BookUpdateView(generics.RetrieveUpdateDestroyAPIView):
     queryset = BookModel.objects.all()
 
 
-
 class StatisticView(APIView):
 
     def inquiry_async(self):
@@ -101,10 +85,10 @@ class StatisticView(APIView):
 
         data = {
             'timeout': datetime.now() - start,
-            'result': {}
+            'results': {}
         }
         for row in rows:
-            data['result'][row[0]] = row[1]
+            data['results'][row[0]] = row[1]
 
         return data
 
@@ -119,13 +103,12 @@ class StatisticView(APIView):
         row = cursor.fetchone()
         data = {
             'timeout': datetime.now() - start,
-            'result': {
+            'results': {
                 'Authors': row[0] if len(row) else None,
                 'Books': row[1] if len(row) > 1 else None
             }
         }
         return data
-
 
     def get(self, request, format=None):
         id = request.query_params.get('id')
