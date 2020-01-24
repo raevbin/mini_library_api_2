@@ -1,6 +1,6 @@
 *__pycache__/
 *.log
 db.sqlite3
-start.sh
 ~*
 info.txt
+dump.rdb
